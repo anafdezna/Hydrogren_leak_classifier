@@ -2,14 +2,13 @@
 
 This repository contains the implementation and experimental framework for a 1D Convolutional Neural Network (CNN) designed to detect and localize hydrogen leaks in industrial storage facilities. The system processes sensor time-series data to identify which tank in a multi-tank array is experiencing a leak.
 
-## 🚀 Project Overview
+## 1\. Project Overview
 
-Industrial hydrogen storage requires rapid, reliable leak localization. Conventional point-based sensors lack spatial awareness, and manual monitoring is insufficient for large-scale facilities.
+This project addresses a critical safety challenge in the transition to hydrogen energy: the rapid detection and spatial localization of unintended hydrogen releases in large-scale storage facilities. Conventional systems often rely on point-based sensors that lack spatial awareness or require dense, expensive networks.
 
-- **Objective:** Real-time spatial identification of hydrogen leaks using a sparse sensor array.
-- **Methodology:** A supervised deep learning approach using 1D-CNNs trained on high-fidelity simulation data to interpret spatiotemporal concentration patterns.
+This work implements a **1D Convolutional Neural Network (CNN)** framework designed to interpret spatiotemporal patterns from a sparse array of only four sensors. The system identifies which specific tank is leaking within a complex simulation environment, providing a scalable and intelligent safety monitoring solution.
 
-## 📂 Repository Structure
+## 2\. Repository Structure
 
 ├── main_server.py # Orchestration: Preprocessing, training, and evaluation  
 ├── architectures.py # 1D-CNN (Arch_3), LSTM, and hybrid model definitions  
@@ -22,26 +21,57 @@ Industrial hydrogen storage requires rapid, reliable leak localization. Conventi
 ├── MODULES/ # Sub-modules for signal preprocessing and transformations  
 └── Output/ # Result directory (Models, .npy logs, and PNG figures)
 
-## 🏗️ Case Study & Dataset
 
-The model is trained on data derived from high-fidelity 3D Computational Fluid Dynamics (CFD) simulations representing a representative industrial layout.
 
-### Facility Layout
+## 3\. Experimental Case Study: Hydrogen Plant Simulation
 
-- **Domain:** \$100m \\times 48m \\times 13m\$ open boundary storage area.
-- **Tanks:** 12 horizontal storage tanks arranged in a grid.
-- **Sensors (**\$n_s=4\$**):** Sparse array strategically placed to capture dispersion fields.
-- **Leak Scenarios:** Constant release rate of \$0.022 kg/s\$ simulated at multiple longitudinal points per tank.
+The methodology is developed using data from a high-fidelity 3D computational fluid dynamics (CFD) simulation of a representative hydrogen storage facility.
 
-### Data Optimization (\$L\_{sim}\$ and \$n_t\$)
+### 3.1 Facility Layout
 
-Research indicates that "Transient Phase" data provides the most discriminative patterns for localization.
+- **Dimensions:** \$100\\text{ m} \\times 48\\text{ m} \\times 13\\text{ m}\$ (Length \$\\times\$ Width \$\\times\$ Height).
+- **Storage:** Twelve horizontal storage tanks (\$12\\text{ m}\$ long, \$2.5\\text{ m}\$ wide).
+- **Grid Spacing:** \$3.25\\text{ m}\$ along the x-axis and \$4.25\\text{ m}\$ along the y-axis.
+- **Symmetry:** For computational efficiency, simulations were focused on the left-hand column of six tanks (\$T_1\$ to \$T_6\$).
 
-- **Simulation Length (**\$L\_{sim}\$**):** Capped at 100s to focus on the initial leak evolution and avoid ambiguous steady-state samples.
-- **Segment Length (**\$n_t\$**):** 50 data points (~16s window) selected as the optimal balance between accuracy and detection delay.
-- **Sampling:** \$f\_{ac} = 3.11\$ Hz (approx. 0.32s per sample).
+### 3.2 Leak Scenarios
 
-## 📈 The 1D-CNN Architecture (Arch_3)
+- **Release Rate:** \$0.022\\text{ kg/s}\$ (representing a hazardous but credible release).
+- **Leak Points:** Six potential leak points per tank (three on each side wall, \$1\\text{ m}\$ above ground).
+- **Duration:** Each simulation spans \$\\approx 300\\text{ seconds}\$ (\$1,000\$ time steps) to capture the transient release and subsequent dispersion.
+
+### 3.3 Instrumentation
+
+- **Sensor Array:** 4 virtual sensors (\$n_s = 4\$).
+- **Placement:** Positioned at the upper boundary (\$13\\text{ m}\$ height) where hydrogen, due to its buoyancy, naturally accumulates.
+- **Data Acquisition:** Sampling frequency of \$\\approx 3.11\\text{ Hz}\$ (\$\\approx 0.32\\text{ s}\$ per time step).
+
+## 4\. Data Engineering and Preprocessing
+
+The raw CFD data is processed to create a robust dataset suitable for training a Deep Learning classifier.
+
+### 4.1 Sliding Window Strategy
+
+To enable continuous monitoring, we employ a sliding window approach:
+
+- **Window Length (**\$n_t\$**):** 50 time steps (\$\\approx 16\\text{ seconds}\$).
+- **Slide Width (**\$n\_{sl}\$**):** 1 time step (\$0.32\\text{ s}\$).
+- **Input Dimension:** \$X_i \\in \\mathbb{R}^{n_t \\times n_s}\$ (a \$50 \\times 4\$ tensor per sample).
+
+### 4.2 Label Encoding
+
+The leak origin is treated as a multi-class classification problem (\$C = 6\$).
+
+- **One-Hot Encoding:** A probability vector \$y_i^{true} \\in \[0, 1\]^C\$ is assigned, where the index of the leaking tank is marked as 1.
+
+### 4.3 Dataset Optimization
+
+Analysis was performed to balance accuracy and detection delay.
+
+- **Simulation Length (**\$L\_{sim}\$**):** We selected data from the first \$100\\text{ seconds}\$ of each simulation. This focuses the model on the transient phase of the leak before the space becomes fully saturated, which provides the most discriminative spatial information.
+
+
+## 5\. The 1D-CNN Architecture (Arch_3)
 
 The framework utilizes a structured 1D-CNN designed to extract features from multi-channel sensor signals:
 
@@ -58,24 +88,24 @@ The framework utilizes a structured 1D-CNN designed to extract features from mul
 | **Output**      | Softmax     | \$(6,)\$         | Probability per tank       |
 | ---             | ---         | ---              | ---                        |
 
-## 📊 Evaluation & Spatial Metrics
+## 6\. Evaluation & Spatial Metrics
 
 Performance is evaluated using both standard classification metrics and safety-critical spatial analysis:
 
-### Standard Metrics
+### 6.1 Standard Metrics
 
 - **Accuracy:** ~88% on unseen test locations.
 - **F1-Score:** ~0.87 (Weighted average).
 
-### Spatial Safety Analysis
+### 6.2 Spatial Safety Analysis
 
 In hydrogen safety, a misclassification to an adjacent tank is significantly safer than a distant one.
 
-- **Mean Spatial Error:** ~2.50 meters.
-- **Neighbor Errors:** ~80% of errors are "Safe Errors" (predicted tank is within 4.25m of the true source).
-- **Spatial Coherence:** Validates that even when the model fails the exact match, it localizes the hazard to the immediate vicinity.
+- **Spatial Error Analysis:** Calculates the physical distance (meters) between the predicted tank and the true source.
+- **Neighbor Error Rate:** Quantifies "safe" misclassifications (attributing the leak to a tank immediately adjacent, i.e., within \$4.25\\text{ m}\$).
+- **Time to First Detection (TTFD):** Analyzes how many seconds the model takes to correctly identify the source after the leak starts.
 
-## 🛠️ Usage & Configuration
+## 7 Usage & Configuration
 
 ### Prerequisites
 

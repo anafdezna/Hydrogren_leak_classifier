@@ -1,0 +1,16 @@
+__pycache__/
+*.pyc
+Figures/
+Figures*/
+Data*/
+Old*/
+*~
+.*
+./*
+!/.gitignore
+*.png
+*.jpg
+*.jpeg
+*.txt
+*.dat
+*logs/
